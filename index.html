@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SP PDF Maker • Horizon</title>
+  <meta name="author" content="Slow Poison" />
+  <meta name="description" content="Create stylish PDFs with text, images, and video frames — all in your browser." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📄</text></svg>">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    :root {
+      --primary: #FF6B00;
+      --primary-light: #FF8C33;
+      --bg: #FFFFFF;
+      --card-bg: #FFFFFF;
+      --text: #000000;
+      --text-secondary: #333333;
+      --border: #E0E0E0;
+      --shadow: 0 4px 12px rgba(0,0,0,0.08);
+      --radius: 12px;
+      --transition: all 0.3s ease;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+      padding: 10px;
+    }
+
+    .app-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 2fr 1fr;
+      gap: 12px;
+      height: calc(100vh - 20px);
+    }
+
+    @media (max-width: 1200px) {
+      .app-container { grid-template-columns: 1fr; height: auto; }
+    }
+
+    .panel {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px;
+      box-shadow: var(--shadow);
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .preview-panel {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #F5F5F5;
+      border-radius: var(--radius);
+      padding: 10px;
+    }
+
+    .preview-canvas-wrapper {
+      width: 100%;
+      max-width: 800px;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      display: flex;
+      gap: 12px;
+      padding: 10px;
+      background: #FFF;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+
+    .preview-page {
+      min-width: 600px;
+      max-width: 600px;
+      background: white;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      border-radius: 8px;
+      padding: 20px;
+      position: relative;
+      scroll-snap-align: start;
+    }
+
+    @media (max-width: 600px) {
+      .preview-page { min-width: 300px; max-width: 300px; padding: 12px; }
+      .panel { padding: 8px; }
+      .preview-canvas-wrapper { padding: 5px; }
+    }
+
+    h1 {
+      font-weight: 800;
+      font-size: 24px;
+      color: var(--primary);
+      text-align: center;
+      margin-bottom: 6px;
+    }
+
+    .subtitle { text-align: center; color: var(--text-secondary); font-size: 12px; margin-bottom: 12px; }
+
+    textarea {
+      width: 100%;
+      min-height: 80px;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 14px;
+      resize: vertical;
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(255, 107, 0, 0.2);
+    }
+
+    .dropzone {
+      border: 2px dashed var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      text-align: center;
+      cursor: pointer;
+      background: rgba(255, 107, 0, 0.03);
+    }
+
+    .dropzone:hover { border-color: var(--primary); background: rgba(255, 107, 0, 0.08); }
+
+    button {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+      font-size: 14px;
+    }
+
+    button:hover {
+      background: var(--primary-light);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(255, 107, 0, 0.3);
+    }
+
+    select, input[type="color"] {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 14px;
+      background: white;
+    }
+
+    .tab-header {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .tab-btn {
+      padding: 6px 12px;
+      background: none;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    .tab-btn.active {
+      background: var(--primary);
+      color: white;
+    }
+
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    .template-option {
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    .template-option.selected {
+      border-color: var(--primary);
+      background: rgba(255, 107, 0, 0.05);
+    }
+
+    footer {
+      text-align: center;
+      margin-top: auto;
+      padding-top: 12px;
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    #confetti-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1000;
+      opacity: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <div class="panel">
+      <h2>Content Studio</h2>
+      <div class="input-group">
+        <label>🖋️ Your Text</label>
+        <textarea id="textInput" placeholder="Type your content here... Use :idea:, :urgent:, :celebrate: for emojis!">Welcome to SP PDF Maker! 🌟
+
+This is a sample document. Try changing the theme, font, or adding media!
+
+Keywords like :idea: will auto-convert to emojis if enabled.</textarea>
+      </div>
+
+      <div class="input-group">
+        <label>📤 Media (Images + 1 Video)</label>
+        <div id="dropzone" class="dropzone">
+          <p>Drag & drop files here<br>or click to browse</p>
+          <input type="file" id="fileInput" multiple accept="image/*,video/mp4" style="display:none">
+        </div>
+        <div id="fileList" class="file-list"></div>
+      </div>
+
+      <button id="generateBtn">⬇️ Generate PDF</button>
+    </div>
+
+    <div class="preview-panel">
+      <h1>SP PDF Maker • Horizon</h1>
+      <p class="subtitle">Swipe left/right to see pages • Final PDF may vary slightly</p>
+      <div class="preview-canvas-wrapper" id="previewCanvasWrapper">
+        <div class="preview-page" id="page1"><div class="preview-content" id="previewContent1"></div></div>
+        <div class="preview-page" id="page2" style="display:none;"><div class="preview-content" id="previewContent2"></div></div>
+        <div class="preview-page" id="page3" style="display:none;"><div class="preview-content" id="previewContent3"></div></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Style Forge</h2>
+
+      <div class="tab-header">
+        <button class="tab-btn active" data-tab="design">Design</button>
+        <button class="tab-btn" data-tab="typography">Typography</button>
+        <button class="tab-btn" data-tab="extras">Extras</button>
+      </div>
+
+      <div class="tab-content active" id="designTab">
+        <div class="input-group">
+          <label>🎨 Accent Color</label>
+          <input type="color" id="colorPicker" value="#FF6B00">
+        </div>
+        <div class="input-group">
+          <label>Theme</label>
+          <div id="themeOptions"></div>
+        </div>
+      </div>
+
+      <div class="tab-content" id="typographyTab">
+        <div class="input-group">
+          <label>🔤 Title Font</label>
+          <select id="titleFontSelect"></select>
+        </div>
+        <div class="input-group">
+          <label>Body Font</label>
+          <select id="bodyFontSelect"></select>
+        </div>
+      </div>
+
+      <div class="tab-content" id="extrasTab">
+        <div class="input-group">
+          <label>
+            <input type="checkbox" id="emojiToggle" checked> Auto Emoji Keywords
+          </label>
+          <small>Replaces :idea: → 💡, :urgent: → ⚡, :celebrate: → 🎉</small>
+        </div>
+      </div>
+
+      <footer>
+        <p>Crafted with precision by <strong>Slow Poison</strong></p>
+        <p>© <span id="year"></span> SP PDF Maker V5. Horizon Edition.</p>
+      </footer>
+    </div>
+  </div>
+
+  <canvas id="confetti-canvas"></canvas>
+
+  <script>
+    // Set year dynamically
+    document.getElementById('year').textContent = new Date().getFullYear();
+
+    const THEMES = [
+      { id: 'modern', name: 'Aura Minimal', css: 'background:white; border-left:4px solid ACCENT;' },
+      { id: 'elegant', name: 'Velvet Formal', css: 'background:#000; color:white; border:2px solid ACCENT; padding:20px;' },
+      { id: 'playful', name: 'Neon Play', css: 'background:white; border:2px dashed ACCENT; border-radius:16px; box-shadow:0 0 15px ACCENT40;' },
+      { id: 'pro-grid', name: 'Grid Pro', css: 'background:#fff; background-image:linear-gradient(rgba(0,0,0,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px); background-size:20px 20px;' },
+      { id: 'watermark', name: 'Watermark Luxe', css: 'background:white; position:relative;' },
+      { id: 'magazine', name: 'Split Magazine', css: 'background:white; column-count:2; column-gap:30px;' },
+      { id: 'mono', name: 'Monochrome Zen', css: 'background:#fff; color:#000;' },
+      { id: 'geometric', name: 'Geo Bold', css: 'background:white; border-top:8px solid ACCENT;' },
+      { id: 'ribbon', name: 'Ribbon Flow', css: 'background:white; position:relative; padding-top:40px;' },
+      { id: 'parchment', name: 'Parchment Vintage', css: 'background:#fff; color:#000; font-family:Georgia, serif;' }
+    ];
+
+    const FONTS = [
+      { name: 'Elegant Caslon', web: "'Playfair Display', serif", pdf: ['times', 'normal'] },
+      { name: 'Classic Garamond', web: "'EB Garamond', serif", pdf: ['times', 'normal'] },
+      { name: 'Modern Georgia', web: "Georgia, serif", pdf: ['times', 'normal'] },
+      { name: 'Clean Inter', web: "'Inter', sans-serif", pdf: ['helvetica', 'normal'] },
+      { name: 'Neutral Helvetica', web: "'Helvetica Neue', Arial, sans-serif", pdf: ['helvetica', 'normal'] },
+      { name: 'Apple SF Pro', web: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", pdf: ['helvetica', 'normal'] },
+      { name: 'Playful Fredoka', web: "'Fredoka', sans-serif", pdf: ['helvetica', 'normal'] },
+      { name: 'Fun Pacifico', web: "'Pacifico', cursive", pdf: ['courier', 'normal'] },
+      { name: 'Bold Luckiest Guy', web: "'Luckiest Guy', cursive", pdf: ['courier', 'normal'] },
+      { name: 'Code JetBrains', web: "'JetBrains Mono', monospace", pdf: ['courier', 'normal'] },
+      { name: 'Terminal Fira', web: "'Fira Code', monospace", pdf: ['courier', 'normal'] },
+      { name: 'Arial', web: "Arial, sans-serif", pdf: ['helvetica', 'normal'] },
+      { name: 'Times New Roman', web: "'Times New Roman', serif", pdf: ['times', 'normal'] },
+      { name: 'Courier New', web: "'Courier New', monospace", pdf: ['courier', 'normal'] },
+      { name: 'Verdana', web: "Verdana, sans-serif", pdf: ['helvetica', 'normal'] },
+      { name: 'Trebuchet MS', web: "'Trebuchet MS', sans-serif", pdf: ['helvetica', 'normal'] },
+      { name: 'Georgia', web: "Georgia, serif", pdf: ['times', 'normal'] },
+      { name: 'Palatino', web: "'Palatino Linotype', serif", pdf: ['times', 'normal'] },
+      { name: 'Garamond', web: "'Garamond', serif", pdf: ['times', 'normal'] },
+      { name: 'Comic Sans (Playful)', web: "'Comic Sans MS', cursive", pdf: ['courier', 'normal'] }
+    ];
+
+    let mediaFiles = [];
+    let currentTheme = 'modern';
+    let currentTitleFont = FONTS[3];
+    let currentBodyFont = FONTS[0];
+    let accentColor = '#FF6B00';
+    let emojiEnabled = true;
+
+    const textInput = document.getElementById('textInput');
+    const fileInput = document.getElementById('fileInput');
+    const dropzone = document.getElementById('dropzone');
+    const fileList = document.getElementById('fileList');
+    const colorPicker = document.getElementById('colorPicker');
+    const titleFontSelect = document.getElementById('titleFontSelect');
+    const bodyFontSelect = document.getElementById('bodyFontSelect');
+    const emojiToggle = document.getElementById('emojiToggle');
+    const generateBtn = document.getElementById('generateBtn');
+    const themeOptions = document.getElementById('themeOptions');
+
+    function init() {
+      renderThemeOptions();
+      renderFontOptions();
+      setupEventListeners();
+      updatePreview();
+    }
+
+    function renderThemeOptions() {
+      themeOptions.innerHTML = '';
+      THEMES.forEach(theme => {
+        const div = document.createElement('div');
+        div.className = 'template-option';
+        if (theme.id === currentTheme) div.classList.add('selected');
+        div.innerHTML = `<div>${theme.name}</div><div class="template-preview" style="${theme.css.replace(/ACCENT/g, accentColor).replace(/ACCENT40/g, accentColor + '66')}"></div>`;
+        div.addEventListener('click', () => {
+          currentTheme = theme.id;
+          document.querySelectorAll('.template-option').forEach(el => el.classList.remove('selected'));
+          div.classList.add('selected');
+          updatePreview();
+        });
+        themeOptions.appendChild(div);
+      });
+    }
+
+    function renderFontOptions() {
+      titleFontSelect.innerHTML = '';
+      bodyFontSelect.innerHTML = '';
+      FONTS.forEach((font, i) => {
+        const opt1 = document.createElement('option');
+        opt1.value = i;
+        opt1.textContent = font.name;
+        if (font === currentTitleFont) opt1.selected = true;
+        titleFontSelect.appendChild(opt1);
+
+        const opt2 = document.createElement('option');
+        opt2.value = i;
+        opt2.textContent = font.name;
+        if (font === currentBodyFont) opt2.selected = true;
+        bodyFontSelect.appendChild(opt2);
+      });
+    }
+
+    function setupEventListeners() {
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+          document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+          btn.classList.add('active');
+          document.getElementById(btn.dataset.tab + 'Tab').classList.add('active');
+        });
+      });
+
+      textInput.addEventListener('input', updatePreview);
+      colorPicker.addEventListener('input', () => {
+        accentColor = colorPicker.value;
+        renderThemeOptions();
+        updatePreview();
+      });
+      titleFontSelect.addEventListener('change', () => {
+        currentTitleFont = FONTS[titleFontSelect.value];
+        updatePreview();
+      });
+      bodyFontSelect.addEventListener('change', () => {
+        currentBodyFont = FONTS[bodyFontSelect.value];
+        updatePreview();
+      });
+      emojiToggle.addEventListener('change', () => {
+        emojiEnabled = emojiToggle.checked;
+        updatePreview();
+      });
+
+      dropzone.addEventListener('click', () => fileInput.click());
+      dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.style.borderColor = '#FF6B00'; });
+      dropzone.addEventListener('dragleave', () => dropzone.style.borderColor = '#E0E0E0');
+      dropzone.addEventListener('drop', e => {
+        e.preventDefault();
+        dropzone.style.borderColor = '#E0E0E0';
+        if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files);
+      });
+      fileInput.addEventListener('change', () => {
+        if (fileInput.files.length) handleFiles(fileInput.files);
+      });
+
+      generateBtn.addEventListener('click', generatePDF);
+    }
+
+    function handleFiles(files) {
+      const newFiles = Array.from(files).slice(0, 10);
+      mediaFiles = [...mediaFiles, ...newFiles].slice(-10);
+      renderFileList();
+      updatePreview();
+    }
+
+    function renderFileList() {
+      fileList.innerHTML = '';
+      mediaFiles.forEach(file => {
+        const div = document.createElement('div');
+        div.className = 'file-item';
+        const icon = file.type.startsWith('video') ? '🎥' : '🖼️';
+        div.innerHTML = `${icon} ${file.name}`;
+        fileList.appendChild(div);
+      });
+    }
+
+    function processText(text) {
+      if (!emojiEnabled) return text;
+      return text
+        .replace(/:idea:/g, '💡')
+        .replace(/:urgent:/g, '⚡')
+        .replace(/:celebrate:/g, '🎉')
+        .replace(/:star:/g, '🌟')
+        .replace(/:heart:/g, '❤️');
+    }
+
+    function updatePreview() {
+      const processedText = processText(textInput.value);
+      const lines = processedText.split('\n');
+      const maxLinesPerPage = 25;
+      const pages = [[], [], []];
+      let currentPageIndex = 0;
+
+      for (let i = 0; i < lines.length; i++) {
+        if (pages[currentPageIndex].length >= maxLinesPerPage && currentPageIndex < 2) {
+          currentPageIndex++;
+        }
+        pages[currentPageIndex].push(lines[i]);
+      }
+
+      for (let i = 0; i < 3; i++) {
+        const pageContent = document.getElementById(`previewContent${i+1}`);
+        if (pages[i].length === 0) {
+          pageContent.innerHTML = '<div style="text-align:center; padding:20px;">Empty Page</div>';
+          continue;
+        }
+
+        let html = `<div style="font-family:${currentBodyFont.web}; color:${currentTheme === 'elegant' ? 'white' : 'black'};">`;
+        const theme = THEMES.find(t => t.id === currentTheme);
+        if (theme) {
+          let style = theme.css.replace(/ACCENT/g, accentColor).replace(/ACCENT40/g, accentColor + '66');
+          html = `<div style="${style} padding:20px; font-family:${currentBodyFont.web};">`;
+        }
+
+        pages[i].forEach(line => {
+          if (line.trim() === '') {
+            html += '<br>';
+          } else {
+            if (i === 0 && pages[i].indexOf(line) === 0 && line.length < 50) {
+              html += `<span style="font-family:${currentTitleFont.web}; font-size:18px; font-weight:700;">${line}</span><br>`;
+            } else {
+              html += `<span style="font-family:${currentBodyFont.web};">${line}</span><br>`;
+            }
+          }
+        });
+
+        if (i === 0 && mediaFiles.length > 0) {
+          html += '<div style="margin-top:20px;">';
+          mediaFiles.slice(0, 3).forEach(file => {
+            const icon = file.type.startsWith('video') ? '🎥' : '🖼️';
+            html += `<div style="margin:10px 0; display:inline-block; width:100px; height:100px; background:#eee; border-radius:6px; display:flex; align-items:center; justify-content:center;">${icon}</div>`;
+          });
+          html += '</div>';
+        }
+
+        if (theme && theme.id === 'watermark') {
+          html += `<div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:80px; opacity:0.05; pointer-events:none;">Slow Poison</div>`;
+        }
+
+        html += '</div>';
+        pageContent.innerHTML = html;
+      }
+
+      document.getElementById('page2').style.display = pages[1].length > 0 ? 'block' : 'none';
+      document.getElementById('page3').style.display = pages[2].length > 0 ? 'block' : 'none';
+    }
+
+    async function generatePDF() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ format: 'a4', unit: 'mm' });
+      const processedText = processText(textInput.value);
+      const margin = 15;
+      let y = 20;
+      const pageHeight = doc.internal.pageSize.height - margin * 2;
+
+      const titleFont = FONTS.find(f => f === currentTitleFont) || FONTS[0];
+      const bodyFont = FONTS.find(f => f === currentBodyFont) || FONTS[0];
+
+      applyThemeToPage(doc, currentTheme, accentColor);
+
+      const lines = processedText.split('\n');
+      let isFirstLine = true;
+
+      for (const line of lines) {
+        if (line.trim() === '') { y += 7; continue; }
+
+        if (isFirstLine && line.length < 50) {
+          doc.setFont(...titleFont.pdf);
+          doc.setFontSize(18);
+          doc.setFontType('bold');
+        } else {
+          doc.setFont(...bodyFont.pdf);
+          doc.setFontSize(12);
+          doc.setFontType('normal');
+        }
+
+        const splitLines = doc.splitTextToSize(line, doc.internal.pageSize.width - margin*2);
+        for (const splitLine of splitLines) {
+          if (y + 7 > pageHeight) {
+            doc.addPage();
+            applyThemeToPage(doc, currentTheme, accentColor);
+            y = 20;
+          }
+          doc.text(splitLine, margin, y);
+          y += 7;
+        }
+        isFirstLine = false;
+        y += 3;
+      }
+
+      for (const file of mediaFiles) {
+        if (file.type.startsWith('image')) {
+          const dataUrl = await fileToDataURL(file);
+          const img = new Image();
+          img.src = dataUrl;
+          await new Promise(r => img.onload = r);
+
+          let width = img.width;
+          let height = img.height;
+          const maxWidth = doc.internal.pageSize.width - margin*2;
+          const maxHeight = 80;
+
+          if (width > maxWidth) {
+            height = (height * maxWidth) / width;
+            width = maxWidth;
+          }
+          if (height > maxHeight) {
+            width = (width * maxHeight) / height;
+            height = maxHeight;
+          }
+
+          if (y + height > pageHeight) {
+            doc.addPage();
+            applyThemeToPage(doc, currentTheme, accentColor);
+            y = 20;
+          }
+
+          doc.addImage(dataUrl, 'JPEG', margin, y, width, height);
+          y += height + 10;
+        }
+      }
+
+      const videoFile = mediaFiles.find(f => f.type.startsWith('video'));
+      if (videoFile) {
+        try {
+          const frameUrl = await captureVideoFrame(videoFile);
+          const width = 80;
+          const height = 45;
+          if (y + height > pageHeight) {
+            doc.addPage();
+            applyThemeToPage(doc, currentTheme, accentColor);
+            y = 20;
+          }
+          doc.addImage(frameUrl, 'JPEG', margin, y, width, height);
+          y += height + 10;
+        } catch (e) {
+          console.warn('Video frame capture failed', e);
+        }
+      }
+
+      doc.save(`SP_Doc_${currentTheme}_${Date.now()}.pdf`);
+      triggerConfetti();
+    }
+
+    function applyThemeToPage(doc, themeId, accentColor) {
+      const theme = THEMES.find(t => t.id === themeId);
+      if (!theme) return;
+
+      if (theme.id === 'modern') {
+        doc.setDrawColor(accentColor);
+        doc.setLineWidth(4);
+        doc.line(10, 10, 10, doc.internal.pageSize.height - 10);
+      } else if (theme.id === 'elegant') {
+        doc.setDrawColor(accentColor);
+        doc.setLineWidth(0.5);
+        doc.rect(10, 10, doc.internal.pageSize.width - 20, doc.internal.pageSize.height - 20);
+        doc.rect(12, 12, doc.internal.pageSize.width - 24, doc.internal.pageSize.height - 24);
+      } else if (theme.id === 'playful') {
+        doc.setDrawColor(accentColor);
+        doc.setLineDashPattern([5, 5], 0);
+        doc.rect(10, 10, doc.internal.pageSize.width - 20, doc.internal.pageSize.height - 20);
+        doc.setLineDashPattern([], 0);
+      } else if (theme.id === 'watermark') {
+        doc.setTextColor(200, 200, 200);
+        doc.setFontSize(60);
+        doc.text('Slow Poison', doc.internal.pageSize.width / 2, doc.internal.pageSize.height / 2, {
+          align: 'center',
+          baseline: 'middle',
+          angle: 30
+        });
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(12);
+      } else if (theme.id === 'geo-bold') {
+        doc.setFillColor(accentColor);
+        doc.rect(10, 10, doc.internal.pageSize.width - 20, 10, 'F');
+      } else if (theme.id === 'ribbon') {
+        doc.setFillColor(accentColor);
+        doc.rect(10, 10, doc.internal.pageSize.width - 20, 15, 'F');
+        doc.setTextColor('white');
+        doc.setFontSize(14);
+        doc.text('Document Header', 15, 20);
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(12);
+      }
+    }
+
+    function fileToDataURL(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function captureVideoFrame(file) {
+      return new Promise((resolve, reject) => {
+        const video = document.createElement('video');
+        video.muted = true;
+        video.preload = 'metadata';
+        video.onloadedmetadata = () => { video.currentTime = 0.1; };
+        video.onseeked = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = 320;
+          canvas.height = 180;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL('image/jpeg', 0.85));
+        };
+        video.onerror = reject;
+        const url = URL.createObjectURL(file);
+        video.src = url;
+      });
+    }
+
+    function triggerConfetti() {
+      const canvas = document.getElementById('confetti-canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      canvas.style.opacity = '1';
+
+      const confetti = [];
+      const colors = ['#f44336', '#e91e63', '#9c27b0', '#673ab7', '#3f51b5', '#2196f3', '#03a9f4', '#00bcd4', '#009688', '#4caf50', '#8bc34a', '#cddc39', '#ffeb3b', '#ffc107', '#ff9800', '#ff5722'];
+
+      for (let i = 0; i < 150; i++) {
+        confetti.push({
+          x: Math.random() * canvas.width,
+          y: -20,
+          w: Math.random() * 10 + 5,
+          h: Math.random() * 10 + 5,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          speed: Math.random() * 3 + 2
+        });
+      }
+
+      let count = 0;
+      const animate = () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        let active = false;
+        confetti.forEach(c => {
+          c.y += c.speed;
+          c.x += Math.sin(c.angle) * 0.5;
+          c.angle += 0.02;
+          ctx.fillStyle = c.color;
+          ctx.fillRect(c.x, c.y, c.w, c.h);
+          if (c.y < canvas.height + 50) active = true;
+        });
+        if (active && count++ < 120) requestAnimationFrame(animate);
+        else canvas.style.opacity = '0';
+      };
+      animate();
+    }
+
+    window.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
